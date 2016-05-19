@@ -1,0 +1,7 @@
+name "shader-capture"
+description "Turn a shader into a video."
+authors "Guillaume Piolat"
+copyright "Copyright 2016, Guillaume Piolat"
+license "BSL-1.0"
+dependency "gfm:opengl" version="~>6.0"
+dependency "y4m-d" version="~>0.0"
