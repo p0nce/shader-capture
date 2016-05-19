@@ -10,7 +10,7 @@ void usage()
 {
     writeln();
     writeln("Shader Capture\n");
-    writeln("usage: shader-capture [-width 1920] [-height 1080] [-fps 60] [-vs vertex-shader.glsl] [-fs fragment-shader.glsl] [-o output.y4m] [-h]\n");
+    writeln("usage: shader-capture [-width 1920] [-height 1080] [-fps 60] [-duration 1] [-vs vertex-shader.glsl] [-fs fragment-shader.glsl] [-o output.y4m] [-h]\n");
 
 }
 
@@ -20,10 +20,11 @@ void main(string[]args)
     {
         int width = 1920;
         int height = 1080;
-        double fps = 60;
+        int fps = 60;
         string vertexShaderFile = "vertex-shader.glsl";
         string fragmentShaderFile = "fragment-shader.glsl";
         string outputFile = "output.y4m";
+        double durationInSecs = 10;
         bool help = false;
 
         for(int i = 1; i < args.length; ++i)
@@ -57,7 +58,11 @@ void main(string[]args)
             else if (arg == "-fps")
             {
                 ++i;
-                fps = to!double(args[i]);
+                fps = to!int(args[i]);
+            } else if (arg == "-duration")
+            {
+                ++i;
+                durationInSecs = to!double(args[i]);
             }
             else if (arg == "-h")
             {
@@ -72,6 +77,16 @@ void main(string[]args)
             return;
         }
 
+        int numFrames = cast(int)(0.5 + durationInSecs * fps);
+
+        auto y4mOutput = new Y4MWriter(outputFile, width, height, Rational(fps, 1)); 
+        ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
+        for (int i = 0; i < numFrames; ++i)
+        {
+            // write something in frameData...
+
+            y4mOutput.writeFrame(frameBytes[]);
+        }
 
     }
     catch(Exception e)
