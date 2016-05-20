@@ -1,7 +1,10 @@
 import std.stdio;
 import std.conv;
+import std.file;
 import std.string;
 import std.typecons;
+
+import core.thread;
 
 import y4md;
 
@@ -90,7 +93,7 @@ void main(string[]args)
         ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
 
 
-        auto window = new CaptureWindow(width, height);
+        auto window = new CaptureWindow(width, height, vertexShaderFile, fragmentShaderFile);
         scope(exit) window.destroy();
 
         int iFrame = 0;
@@ -122,10 +125,20 @@ void main(string[]args)
 }
 
 
+struct Vertex
+{
+    vec3f position;
+    vec2f coordinates;
+}
+
+
 class CaptureWindow
 {
-    this(int width, int height)
+    this(int width, int height, string vertexShaderFile, string fragmentShaderFile)
     {
+        _renderWidth = width;
+        _renderHeight = height;
+
         // create a coloured console logger
         _log = new ConsoleLogger();
 
@@ -153,17 +166,80 @@ class CaptureWindow
         _texture = new GLTexture2D(_gl);
         _texture.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
         _texture.setMagFilter(GL_LINEAR);
-        _texture.setImage(0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null); 
-        _texture.generateMipmap();
+        _texture.setWrapS(GL_CLAMP_TO_EDGE);
+        _texture.setWrapT(GL_CLAMP_TO_EDGE);
+        _texture.setImage(0, GL_RGBA, _renderWidth, _renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, null); 
+        _texture.generateMipmap();    
+
+        _fbo = new GLFBO(_gl);
+        _fbo.use();
+        _fbo.color(0).attach(_texture);
+        _fbo.unuse();
+
+        _blitProgram = new GLProgram(_gl, blitProgramSource);
+
+        // Create shaders
+        string vertexShaderSource;
+        string fragmentShaderSource = cast(string) read(fragmentShaderFile);
+
+        if (exists(vertexShaderFile))
+        {
+            vertexShaderSource = cast(string) read(vertexShaderFile);
+        }
+        else
+        {
+            writeln("Using a default vertex shader.");
+            vertexShaderSource = defaultVertexShader;
+        }
+
+        {
+            auto vertexShader = new GLShader(_gl, GL_VERTEX_SHADER, splitLines(vertexShaderSource));
+            scope(exit) vertexShader.destroy();
+            auto fragmentShader = new GLShader(_gl, GL_FRAGMENT_SHADER, splitLines(fragmentShaderSource));
+            scope(exit) fragmentShader.destroy();
+            _sceneProgram = new GLProgram(_gl, [vertexShader, fragmentShader]);
+        }
+        createGeometry();
     }
 
     ~this()
     {
+        _fbo.destroy();
+        _sceneProgram.destroy();
+        _blitProgram.destroy();
+        _vao.destroy();
+        _quadVBO.destroy();
+        _quadVS.destroy();
+
         _texture.destroy();
         _window.destroy();
         _gl.destroy();
         _sdl2.destroy();
         _log.destroy();
+    }
+
+    void createGeometry()
+    { 
+
+        Vertex[] quad;
+        quad ~= Vertex(vec3f(-1, -1, 0), vec2f(0, 0));
+        quad ~= Vertex(vec3f(+1, -1, 0), vec2f(1, 0));
+        quad ~= Vertex(vec3f(+1, +1, 0), vec2f(1, 1));
+        quad ~= Vertex(vec3f(+1, +1, 0), vec2f(1, 1));
+        quad ~= Vertex(vec3f(-1, +1, 0), vec2f(0, 1));
+        quad ~= Vertex(vec3f(-1, -1, 0), vec2f(0, 0));
+
+        _quadVBO = new GLBuffer(_gl, GL_ARRAY_BUFFER, GL_STATIC_DRAW, quad[]);
+        _quadVS = new VertexSpecification!Vertex(_blitProgram);
+        _vao = new GLVAO(_gl);
+
+        // prepare VAO
+        {
+            _vao.bind();
+            _quadVBO.bind();
+            _quadVS.use();
+            _vao.unbind();
+        }
     }
 
     void processEvents()
@@ -178,23 +254,57 @@ class CaptureWindow
 
     void displayFrame(double time)
     {
+        SDL_Point size = _window.getSize();
+
+        glViewport(0, 0, size.x, size.y); // TODO adapt to current window dimension
         glClearColor(0.5f, 0.5f, 0.5f, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
         recomputeTextureContent(time);
-        drawTextureContent();
+        drawTextureContent(size.x, size.y);
+        
+    }
+
+    void recomputeTextureContent(double time) 
+    {
+        glViewport(0, 0, _renderWidth, _renderHeight); 
+        _fbo.use();
+
+        _sceneProgram.uniform("time").set!float(time);
+        _sceneProgram.uniform("resolution").set( vec2f(_renderWidth, _renderHeight) );
+        _sceneProgram.uniform("mousePos").set(vec2f(0, 0));
+
+        _sceneProgram.use();
+        drawFullQuad();
+        _sceneProgram.unuse();
+
+        _fbo.unuse();
+
+        _texture.generateMipmap();
+    }
+
+    /// Shows the content of texture into the displayed framebuffer
+
+    void drawTextureContent(int displayWidth, int displayHeight)
+    {
+        int texUnit = 1;
+        _texture.use(texUnit);
+        _blitProgram.uniform("fbTexture").set(texUnit);
+        _blitProgram.uniform("resolution").set(vec2f(displayWidth, displayHeight));
+        _blitProgram.use();
+        drawFullQuad();
+        _blitProgram.unuse();
+
         _window.swapBuffers();
     }
 
-    void recomputeTextureContent(double time)
+    void drawFullQuad()
     {
-        // TODO draw shader
+        _vao.bind();
+        glDrawArrays(GL_TRIANGLES, 0, cast(int)(_quadVBO.size() / _quadVS.vertexSize()));
+        _vao.unbind();
     }
-
-    void drawTextureContent()
-    {
-        // TODO draw shader
-    }
+    
 
     ConsoleLogger _log;
     SDL2 _sdl2;
@@ -202,4 +312,58 @@ class CaptureWindow
     SDL2Window _window;
 
     GLTexture2D _texture;
+
+    GLBuffer _quadVBO;
+    VertexSpecification!Vertex _quadVS;
+    GLVAO _vao;
+
+    GLFBO _fbo;
+
+    GLProgram _sceneProgram;
+    GLProgram _blitProgram;
+
+    int _renderWidth;
+    int _renderHeight;
 }
+
+string blitProgramSource =
+q{#version 330 core
+
+    #if VERTEX_SHADER
+    in vec3 position;
+    in vec2 coordinates;
+    out vec2 fragmentUV;
+    void main()
+    {
+        gl_Position = vec4(position, 1.0);
+        fragmentUV = coordinates;
+    }
+    #endif
+
+    #if FRAGMENT_SHADER
+    in vec2 fragmentUV;
+    uniform sampler2D fbTexture;
+    uniform vec2 resolution;
+    out vec4 color;
+
+    void main()
+    {
+        vec2 screenPos = ( gl_FragCoord.xy / resolution.xy );
+        color = texture(fbTexture, screenPos).rgba; // stretch
+    }
+    #endif
+};
+
+string defaultVertexShader =
+    q{#version 330 core
+
+        in vec3 position;
+        in vec2 coordinates;
+        out vec2 fragmentUV;
+        void main()
+        {
+            gl_Position = vec4(position, 1.0);
+            fragmentUV = coordinates;
+        }
+    };
+
