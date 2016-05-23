@@ -271,9 +271,10 @@ class CaptureWindow
         glViewport(0, 0, _renderWidth, _renderHeight); 
         _fbo.use();
 
+        // variables from http://glslsandbox.com/
         _sceneProgram.uniform("time").set!float(time);
         _sceneProgram.uniform("resolution").set( vec2f(_renderWidth, _renderHeight) );
-        _sceneProgram.uniform("mousePos").set(vec2f(0, 0));
+        _sceneProgram.uniform("mouse").set(vec2f(_renderWidth * 0.5f, _renderHeight * 0.5f)); // middle of screen TODO move it
 
         _sceneProgram.use();
         drawFullQuad();
