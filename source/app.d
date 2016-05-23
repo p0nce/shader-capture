@@ -107,7 +107,7 @@ void main(string[]args)
 
             // write something in frameData...
 
-            double time = iFrame / fps;
+            double time = iFrame / cast(double)fps;
 
             window.displayFrame(time);
             window.getFrameContentYUV444(frameBytes[]);
