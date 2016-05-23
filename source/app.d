@@ -89,7 +89,7 @@ void main(string[]args)
 
         int numFrames = cast(int)(0.5 + durationInSecs * fps);
 
-        auto y4mOutput = new Y4MWriter(outputFile, width, height, Rational(fps, 1)); 
+        auto y4mOutput = new Y4MWriter(outputFile, width, height, Rational(fps, 1), Rational(1, 1), Interlacing.Progressive, Subsampling.C444); 
         ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
 
 
@@ -110,7 +110,7 @@ void main(string[]args)
             double time = iFrame / fps;
 
             window.displayFrame(time);
-
+            window.getFrameContentYUV444(frameBytes[]);
             y4mOutput.writeFrame(frameBytes[]);
         }
 
@@ -200,6 +200,8 @@ class CaptureWindow
             _sceneProgram = new GLProgram(_gl, [vertexShader, fragmentShader]);
         }
         createGeometry();
+
+        _rgbaBuf.length = _renderWidth * _renderHeight * 4;
     }
 
     ~this()
@@ -262,7 +264,6 @@ class CaptureWindow
 
         recomputeTextureContent(time);
         drawTextureContent(size.x, size.y);
-        
     }
 
     void recomputeTextureContent(double time) 
@@ -289,13 +290,62 @@ class CaptureWindow
     {
         int texUnit = 1;
         _texture.use(texUnit);
+
         _blitProgram.uniform("fbTexture").set(texUnit);
-        _blitProgram.uniform("resolution").set(vec2f(displayWidth, displayHeight));
+        _blitProgram.uniform("renderSize").set(vec2f(_renderWidth, _renderHeight));
+        _blitProgram.uniform("displaySize").set(vec2f(displayWidth, displayHeight));
         _blitProgram.use();
         drawFullQuad();
         _blitProgram.unuse();
 
         _window.swapBuffers();
+    }
+
+    /// Gets texture content, and convert it to YUV444 using BT 701 conversion
+    void getFrameContentYUV444(ubyte[] frame)
+    {
+        int numPixels = _renderWidth * _renderHeight;
+        assert(frame.length == numPixels * 3);
+        
+        // read back texture
+
+        _texture.getTexImage(0, GL_RGBA, GL_UNSIGNED_BYTE, _rgbaBuf.ptr);
+        
+
+        // Convert from interlaced RGBA8 to planar YUV 4:4:4
+        // using Rec 709 everytime (should be 601 for SD video but unimplemented)
+
+        ubyte* baseY = frame.ptr;
+        ubyte* baseU = frame.ptr + numPixels;
+        ubyte* baseV = frame.ptr + 2 * numPixels;
+
+        foreach (int y; 0.._renderHeight)
+        {
+            foreach (int x; 0.._renderWidth)
+            {
+                int index = ((_renderHeight - 1 - y) * _renderWidth + x) * 4;  // flip vertically
+                int R = _rgbaBuf[index + 0];
+                int G = _rgbaBuf[index + 1];
+                int B = _rgbaBuf[index + 2];
+                int A = _rgbaBuf[index + 3];
+
+                int Y = cast(int)(0.5f + 0.213f*R + 0.715f*G + 0.072f*B);
+                int Cb = cast(int)(0.5f + -0.117f*R - 0.394f*G + 0.511f*B + 128);
+                int Cr = cast(int)(0.5f + 0.511f*R - 0.464f*G - 0.047f*B + 128);
+
+                if (Y < 16) Y = 16;
+                if (Y > 235) Y = 235;
+                if (Cb < 16) Cb = 16;
+                if (Cb > 240) Cb = 240;
+                if (Cr < 16) Cr = 16;
+                if (Cr > 240) Cr = 240;
+
+                int outI = (y * _renderWidth + x);
+                baseY[outI] = cast(ubyte)Y;
+                baseU[outI] = cast(ubyte)Cb;
+                baseV[outI] = cast(ubyte)Cr;
+            }
+        }
     }
 
     void drawFullQuad()
@@ -324,6 +374,8 @@ class CaptureWindow
 
     int _renderWidth;
     int _renderHeight;
+
+    ubyte[] _rgbaBuf;
 }
 
 string blitProgramSource =
@@ -343,13 +395,19 @@ q{#version 330 core
     #if FRAGMENT_SHADER
     in vec2 fragmentUV;
     uniform sampler2D fbTexture;
-    uniform vec2 resolution;
+    uniform vec2 displaySize;
+    uniform vec2 renderSize;
     out vec4 color;
 
     void main()
     {
-        vec2 screenPos = ( gl_FragCoord.xy / resolution.xy );
-        color = texture(fbTexture, screenPos).rgba; // stretch
+        float displayRatio = displaySize.x / displaySize.y;
+        float renderRatio = renderSize.x / renderSize.y;
+        vec2 screenPos = ( gl_FragCoord.xy / displaySize.xy );
+
+        vec2 uv = screenPos;
+
+        color = texture(fbTexture, uv).rgba; // stretch
     }
     #endif
 };
