@@ -1,7 +1,17 @@
 # shader-capture 
 
-A simple tool to turn a shader into a Y4M raw video.
+A simple tool to turn a shader into a raw video.
 Designed to work out-of-the-box with shader made with [http://glslsandbox.com/](http://glslsandbox.com/)
+The output video is Y4M using the Rec 709 color space with no chroma-subsampling (4:4:4).
+
+# How to build?
+
+- clone this repositery
+- install a D compiler and DUB the D build tool.
+- type `dub` to build
+
+
+# Usage
 
 ```bash
 
