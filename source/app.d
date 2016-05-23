@@ -20,8 +20,31 @@ void usage()
 {
     writeln();
     writeln("Shader Capture\n");
-    writeln("usage: shader-capture [-width 1920] [-height 1080] [-fps 60] [-duration 1] [-vs vertex-shader.glsl] [-fs fragment-shader.glsl] [-o output.y4m] [-h]\n");
+    writeln("usage: shader-capture [-w 1920] [-h 1080] [-x 1] [-fps 60] [-duration 1] [-vs vertex.glsl] [-fs fragment.glsl] [-o output.y4m] [-h]\n");
+    writeln();
+    writeln("Arguments:");
+    writeln("    -w     Sets width of output video (default: 1920).");
+    writeln("    -h     Sets height of output video (default: 1080).");
+    writeln("    -fps   Sets framerate of output video (default: 60).");
+    writeln("    -x     Oversampling 1x 4x 16x or 64x (default: 1).");
+    writeln("    -vs    Use this vertex shader (default: builtin shader)");
+    writeln("    -fs    Use this vertex shader (default: fragment-shader.glsl)");
+    writeln("    -o     Sets the output video filename (default: output.y4m)");
+    writeln("    -help  Shows this help.");
+    writeln();
+}
 
+enum Oversampling
+{
+    x1 = 0,   // scene is rendered at 1x resolution (default)
+    x4 = 1,   // scene is rendered at 2x resolution
+    x16 = 2,  // scene is rendered at 4x resolution
+    x64 = 3,  // scene is rendered at 8x resolution
+}
+
+int oversamplingToScale(Oversampling o)
+{
+    return 1 << o;
 }
 
 void main(string[]args)
@@ -31,11 +54,12 @@ void main(string[]args)
         int width = 1920;
         int height = 1080;
         int fps = 60;
-        string vertexShaderFile = "vertex-shader.glsl";
+        string vertexShaderFile = null;
         string fragmentShaderFile = "fragment-shader.glsl";
         string outputFile = "output.y4m";
         double durationInSecs = 1;
         bool help = false;
+        Oversampling oversampling = Oversampling.x1;
 
         for(int i = 1; i < args.length; ++i)
         {
@@ -55,15 +79,29 @@ void main(string[]args)
                 ++i;
                 fragmentShaderFile = args[i];
             }         
-            else if (arg == "-width")
+            else if (arg == "-w")
             {
                 ++i;
                 width = to!int(args[i]);
             }
-            else if (arg == "-height")
+            else if (arg == "-h")
             {
                 ++i;
                 height = to!int(args[i]);
+            }
+            else if (arg == "-x")
+            {
+                ++i;
+                int scale = to!int(args[i]);
+                switch(scale)
+                {
+                    case 1: oversampling = Oversampling.x1; break;
+                    case 4: oversampling = Oversampling.x4; break;
+                    case 16: oversampling = Oversampling.x16; break;
+                    case 64: oversampling = Oversampling.x64; break;
+                    default:
+                        throw new Exception("Accepted -x values: 1, 4, 16, 64");
+                }
             }
             else if (arg == "-fps")
             {
@@ -74,7 +112,7 @@ void main(string[]args)
                 ++i;
                 durationInSecs = to!double(args[i]);
             }
-            else if (arg == "-h")
+            else if (arg == "-help" || arg == "--help")
             {
                 help = true;
             }
@@ -93,7 +131,7 @@ void main(string[]args)
         ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
 
 
-        auto window = new CaptureWindow(width, height, vertexShaderFile, fragmentShaderFile);
+        auto window = new CaptureWindow(width, height, oversampling, vertexShaderFile, fragmentShaderFile);
         scope(exit) window.destroy();
 
         int iFrame = 0;
@@ -128,16 +166,21 @@ void main(string[]args)
 struct Vertex
 {
     vec3f position;
-    vec2f coordinates;
 }
 
 
 class CaptureWindow
 {
-    this(int width, int height, string vertexShaderFile, string fragmentShaderFile)
+    this(int width, int height, Oversampling oversampling, string vertexShaderFile, string fragmentShaderFile)
     {
-        _renderWidth = width;
-        _renderHeight = height;
+        _captureWidth = width;
+        _captureHeight = height;
+
+        _renderWidth = width * oversamplingToScale(oversampling);
+        _renderHeight = height * oversamplingToScale(oversampling);
+
+        // which level of mipmap to read back?
+        _levelReadback = oversampling;
 
         // create a coloured console logger
         _log = new ConsoleLogger();
@@ -182,13 +225,13 @@ class CaptureWindow
         string vertexShaderSource;
         string fragmentShaderSource = cast(string) read(fragmentShaderFile);
 
-        if (exists(vertexShaderFile))
+        if (vertexShaderFile != null && exists(vertexShaderFile))
         {
             vertexShaderSource = cast(string) read(vertexShaderFile);
         }
         else
         {
-            writeln("Using a default vertex shader.");
+            writeln("No existing vertex shader provided, using a default one.");
             vertexShaderSource = defaultVertexShader;
         }
 
@@ -209,7 +252,7 @@ class CaptureWindow
         }
         createGeometry();
 
-        _rgbaBuf.length = _renderWidth * _renderHeight * 4;
+        _rgbaBuf.length = _captureWidth * _captureHeight * 4;
     }
 
     ~this()
@@ -232,12 +275,12 @@ class CaptureWindow
     { 
 
         Vertex[] quad;
-        quad ~= Vertex(vec3f(-1, -1, 0), vec2f(0, 0));
-        quad ~= Vertex(vec3f(+1, -1, 0), vec2f(1, 0));
-        quad ~= Vertex(vec3f(+1, +1, 0), vec2f(1, 1));
-        quad ~= Vertex(vec3f(+1, +1, 0), vec2f(1, 1));
-        quad ~= Vertex(vec3f(-1, +1, 0), vec2f(0, 1));
-        quad ~= Vertex(vec3f(-1, -1, 0), vec2f(0, 0));
+        quad ~= Vertex(vec3f(-1, -1, 0));
+        quad ~= Vertex(vec3f(+1, -1, 0));
+        quad ~= Vertex(vec3f(+1, +1, 0));
+        quad ~= Vertex(vec3f(+1, +1, 0));
+        quad ~= Vertex(vec3f(-1, +1, 0));
+        quad ~= Vertex(vec3f(-1, -1, 0));
 
         _quadVBO = new GLBuffer(_gl, GL_ARRAY_BUFFER, GL_STATIC_DRAW, quad[]);
         _quadVS = new VertexSpecification!Vertex(_blitProgram);
@@ -282,7 +325,7 @@ class CaptureWindow
         // variables from http://glslsandbox.com/
         _sceneProgram.uniform("time").set!float(time);
         _sceneProgram.uniform("resolution").set( vec2f(_renderWidth, _renderHeight) );
-        _sceneProgram.uniform("mouse").set(vec2f(_renderWidth * 0.5f, _renderHeight * 0.5f)); // middle of screen TODO move it
+        _sceneProgram.uniform("mouse").set(vec2f(_renderWidth * 0.5f, _renderHeight * 0.5f)); // middle of screen TODO move it?
 
         _sceneProgram.use();
         drawFullQuad();
@@ -290,18 +333,18 @@ class CaptureWindow
 
         _fbo.unuse();
 
-        _texture.generateMipmap();
+        // this step allow mipmapped display, and also does the subsampling for readback
+        _texture.generateMipmap(); 
     }
 
     /// Shows the content of texture into the displayed framebuffer
-
     void drawTextureContent(int displayWidth, int displayHeight)
     {
         int texUnit = 1;
         _texture.use(texUnit);
 
         _blitProgram.uniform("fbTexture").set(texUnit);
-        _blitProgram.uniform("renderSize").set(vec2f(_renderWidth, _renderHeight));
+        _blitProgram.uniform("captureSize").set(vec2f(_captureWidth, _captureHeight));
         _blitProgram.uniform("displaySize").set(vec2f(displayWidth, displayHeight));
         _blitProgram.use();
         drawFullQuad();
@@ -313,12 +356,12 @@ class CaptureWindow
     /// Gets texture content, and convert it to YUV444 using BT 701 conversion
     void getFrameContentYUV444(ubyte[] frame)
     {
-        int numPixels = _renderWidth * _renderHeight;
+        int numPixels = _captureWidth * _captureHeight;
         assert(frame.length == numPixels * 3);
         
         // read back texture
 
-        _texture.getTexImage(0, GL_RGBA, GL_UNSIGNED_BYTE, _rgbaBuf.ptr);
+        _texture.getTexImage(_levelReadback, GL_RGBA, GL_UNSIGNED_BYTE, _rgbaBuf.ptr);
         
 
         // Convert from interlaced RGBA8 to planar YUV 4:4:4
@@ -328,11 +371,11 @@ class CaptureWindow
         ubyte* baseU = frame.ptr + numPixels;
         ubyte* baseV = frame.ptr + 2 * numPixels;
 
-        foreach (int y; 0.._renderHeight)
+        foreach (int y; 0.._captureHeight)
         {
-            foreach (int x; 0.._renderWidth)
+            foreach (int x; 0.._captureWidth)
             {
-                int index = ((_renderHeight - 1 - y) * _renderWidth + x) * 4;  // flip vertically
+                int index = ((_captureHeight - 1 - y) * _captureWidth + x) * 4;  // flip vertically
                 int R = _rgbaBuf[index + 0];
                 int G = _rgbaBuf[index + 1];
                 int B = _rgbaBuf[index + 2];
@@ -349,7 +392,7 @@ class CaptureWindow
                 if (Cr < 16) Cr = 16;
                 if (Cr > 240) Cr = 240;
 
-                int outI = (y * _renderWidth + x);
+                int outI = (y * _captureWidth + x);
                 baseY[outI] = cast(ubyte)Y;
                 baseU[outI] = cast(ubyte)Cb;
                 baseV[outI] = cast(ubyte)Cr;
@@ -381,8 +424,17 @@ class CaptureWindow
     GLProgram _sceneProgram;
     GLProgram _blitProgram;
 
+    // The size of the video wen displayed, and captured as video.
+    int _captureWidth;
+    int _captureHeight;
+
+    // The size of the video effectively rendered by the shader.
+    // Is a pow2 multiple of the capture size because of oversampling.
     int _renderWidth;
     int _renderHeight;
+
+    // which level of mipmap to read back?
+    int _levelReadback;
 
     ubyte[] _rgbaBuf;
 }
@@ -392,31 +444,27 @@ q{#version 330 core
 
     #if VERTEX_SHADER
     in vec3 position;
-    in vec2 coordinates;
-    out vec2 fragmentUV;
     void main()
     {
         gl_Position = vec4(position, 1.0);
-        fragmentUV = coordinates;
     }
     #endif
 
     #if FRAGMENT_SHADER
-    in vec2 fragmentUV;
     uniform sampler2D fbTexture;
     uniform vec2 displaySize;
-    uniform vec2 renderSize;
+    uniform vec2 captureSize;
     out vec4 color;
 
     void main()
     {
         float displayRatio = displaySize.x / displaySize.y;
-        float renderRatio = renderSize.x / renderSize.y;
+        float captureRatio = captureSize.x / captureSize.y;
         vec2 screenPos = ( gl_FragCoord.xy / displaySize.xy );
 
         vec2 uv = screenPos;
 
-        color = texture(fbTexture, uv).rgba; // stretch
+        color = texture(fbTexture, uv).rgba; // stretch TODO proper ratio display
     }
     #endif
 };
@@ -425,12 +473,9 @@ string defaultVertexShader =
     q{#version 330 core
 
         in vec3 position;
-        in vec2 coordinates;
-        out vec2 fragmentUV;
         void main()
         {
             gl_Position = vec4(position, 1.0);
-            fragmentUV = coordinates;
         }
     };
 
