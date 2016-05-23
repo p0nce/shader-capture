@@ -192,6 +192,14 @@ class CaptureWindow
             vertexShaderSource = defaultVertexShader;
         }
 
+        // ensure first line is "#version" 
+        // Default is #version 110 which seems in line with what online shaders do
+        if (fragmentShaderSource.length < 9 || fragmentShaderSource[0..9] != "#version ")
+            fragmentShaderSource = "#version 110\n" ~ fragmentShaderSource;
+        if (vertexShaderSource.length < 9 || vertexShaderSource[0..9] != "#version ")
+            vertexShaderSource = "#version 110\n" ~ vertexShaderSource;
+
+
         {
             auto vertexShader = new GLShader(_gl, GL_VERTEX_SHADER, splitLines(vertexShaderSource));
             scope(exit) vertexShader.destroy();
