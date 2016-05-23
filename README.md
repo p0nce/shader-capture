@@ -1,17 +1,19 @@
-# shader-capture 
+## What is `shader-capture`? 
 
-A simple tool to turn a shader into a raw video.
-Designed to work out-of-the-box with shader made with [http://glslsandbox.com/](http://glslsandbox.com/)
-The output video is Y4M using the Rec 709 color space with no chroma-subsampling (4:4:4).
+`shader-capture` is a tool to turn a GLSL fragment shader into a raw video.
+It is designed to work out-of-the-box with shaders made with [http://glslsandbox.com/](http://glslsandbox.com/)
+The output video is Y4M using the Rec. 709 color space with no chroma-subsampling (4:4:4).
 
-# How to build?
+## How to build?
 
-- clone this repositery
+- git clone this repositery
 - install a D compiler and DUB the D build tool.
+- chdir in the cloned directory
 - type `dub` to build
+- for better performance, type `dub -b release-nobounds` instead
 
 
-# Usage
+## How to use it?
 
 ```bash
 
@@ -33,3 +35,5 @@ Arguments:
     -help  Shows this help.
 
 ```
+
+`shader-capture` comes with an example shader so that running it without arguments outputs a video.
