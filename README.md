@@ -37,3 +37,9 @@ Arguments:
 ```
 
 `shader-capture` comes with an example shader so that running it without arguments outputs a video.
+
+The output can be encoded with ffmpeg with as an example the following line:
+
+```
+ffmpeg -i output.y4m -vcodec libx264 -preset slow -crf 18 -pix_fmt yuv420p output.mp4
+```
