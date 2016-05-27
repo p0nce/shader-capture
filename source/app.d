@@ -23,14 +23,15 @@ void usage()
     stderr.writeln("usage: shader-capture [-w 1920] [-h 1080] [-x 1] [-fps 60] [-t 1] [-vs vertex.glsl] [-fs fragment.glsl] > output.y4m [-h]\n");
     stderr.writeln();
     stderr.writeln("Arguments:");
-    stderr.writeln("    -w     Sets width of output video (default: 1920).");
-    stderr.writeln("    -h     Sets height of output video (default: 1080).");
-    stderr.writeln("    -x     Oversampling 1x 4x 16x or 64x (default: 1).");
-    stderr.writeln("    -fps   Sets framerate of output video (default: 60).");
-    stderr.writeln("    -t     Time duration of the video in seconds (default: 1).");
-    stderr.writeln("    -vs    Use this vertex shader (default: builtin shader)");
-    stderr.writeln("    -fs    Use this vertex shader (default: fragment-shader.glsl)");
-    stderr.writeln("    -help  Shows this help.");
+    stderr.writeln("    -w            Sets width of output video (default: 1920).");
+    stderr.writeln("    -h            Sets height of output video (default: 1080).");
+    stderr.writeln("    -x            Oversampling 1x 4x 16x or 64x (default: 1).");
+    stderr.writeln("    -fps          Sets framerate of output video (default: 60).");
+    stderr.writeln("    -t            Time duration of the video in seconds (default: 1).");
+    stderr.writeln("    -vs           Use this vertex shader (default: builtin shader)");
+    stderr.writeln("    -fs           Use this vertex shader (default: fragment-shader.glsl)");
+    stderr.writeln("    -no-output    Do not output a video, to test speed. (default: do output)");
+    stderr.writeln("    -help         Shows this help.");
     stderr.writeln();
 }
 
@@ -58,6 +59,7 @@ void main(string[]args)
         string fragmentShaderFile = "fragment-shader.glsl";
         double durationInSecs = 1;
         bool help = false;
+        bool outputAVideo = true;
         Oversampling oversampling = Oversampling.x1;
 
         for(int i = 1; i < args.length; ++i)
@@ -77,6 +79,10 @@ void main(string[]args)
             {
                 ++i;
                 width = to!int(args[i]);
+            }
+            else if (arg == "-no-output")
+            {
+                outputAVideo = false;
             }
             else if (arg == "-h")
             {
@@ -143,7 +149,8 @@ void main(string[]args)
 
             window.displayFrame(time);
             window.getFrameContentYUV444(frameBytes[]);
-            y4mOutput.writeFrame(frameBytes[]);
+            if (outputAVideo)
+                y4mOutput.writeFrame(frameBytes[]);
         }
         stdout.flush();
 
