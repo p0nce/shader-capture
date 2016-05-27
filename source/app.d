@@ -18,20 +18,20 @@ import gfm.sdl2,
 
 void usage()
 {
-    writeln();
-    writeln("Shader Capture\n");
-    writeln("usage: shader-capture [-w 1920] [-h 1080] [-x 1] [-fps 60] [-duration 1] [-vs vertex.glsl] [-fs fragment.glsl] [-o output.y4m] [-h]\n");
-    writeln();
-    writeln("Arguments:");
-    writeln("    -w     Sets width of output video (default: 1920).");
-    writeln("    -h     Sets height of output video (default: 1080).");
-    writeln("    -fps   Sets framerate of output video (default: 60).");
-    writeln("    -x     Oversampling 1x 4x 16x or 64x (default: 1).");
-    writeln("    -vs    Use this vertex shader (default: builtin shader)");
-    writeln("    -fs    Use this vertex shader (default: fragment-shader.glsl)");
-    writeln("    -o     Sets the output video filename (default: output.y4m)");
-    writeln("    -help  Shows this help.");
-    writeln();
+    stderr.writeln();
+    stderr.writeln("Shader Capture\n");
+    stderr.writeln("usage: shader-capture [-w 1920] [-h 1080] [-x 1] [-fps 60] [-t 1] [-vs vertex.glsl] [-fs fragment.glsl] > output.y4m [-h]\n");
+    stderr.writeln();
+    stderr.writeln("Arguments:");
+    stderr.writeln("    -w     Sets width of output video (default: 1920).");
+    stderr.writeln("    -h     Sets height of output video (default: 1080).");
+    stderr.writeln("    -x     Oversampling 1x 4x 16x or 64x (default: 1).");
+    stderr.writeln("    -fps   Sets framerate of output video (default: 60).");
+    stderr.writeln("    -t     Time duration of the video in seconds (default: 1).");
+    stderr.writeln("    -vs    Use this vertex shader (default: builtin shader)");
+    stderr.writeln("    -fs    Use this vertex shader (default: fragment-shader.glsl)");
+    stderr.writeln("    -help  Shows this help.");
+    stderr.writeln();
 }
 
 enum Oversampling
@@ -56,7 +56,6 @@ void main(string[]args)
         int fps = 60;
         string vertexShaderFile = null;
         string fragmentShaderFile = "fragment-shader.glsl";
-        string outputFile = "output.y4m";
         double durationInSecs = 1;
         bool help = false;
         Oversampling oversampling = Oversampling.x1;
@@ -64,12 +63,7 @@ void main(string[]args)
         for(int i = 1; i < args.length; ++i)
         {
             string arg = args[i];
-            if (arg == "-o")
-            {               
-                ++i;
-                outputFile = args[i];
-            }
-            else if (arg == "-vs")
+            if (arg == "-vs")
             {
                 ++i;
                 vertexShaderFile = args[i];
@@ -107,7 +101,7 @@ void main(string[]args)
             {
                 ++i;
                 fps = to!int(args[i]);
-            } else if (arg == "-duration")
+            } else if (arg == "-t")
             {
                 ++i;
                 durationInSecs = to!double(args[i]);
@@ -127,7 +121,7 @@ void main(string[]args)
 
         int numFrames = cast(int)(0.5 + durationInSecs * fps);
 
-        auto y4mOutput = new Y4MWriter(outputFile, width, height, Rational(fps, 1), Rational(1, 1), Interlacing.Progressive, Subsampling.C444); 
+        auto y4mOutput = new Y4MWriter(stdout, width, height, Rational(fps, 1), Rational(1, 1), Interlacing.Progressive, Subsampling.C444); 
         ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
 
 
@@ -151,13 +145,14 @@ void main(string[]args)
             window.getFrameContentYUV444(frameBytes[]);
             y4mOutput.writeFrame(frameBytes[]);
         }
+        stdout.flush();
 
-        writefln("Written %s frames to %s.", iFrame, outputFile); 
+        stderr.writefln("Written %s frames.", iFrame); 
     }
     catch(Exception e)
     {
         import std.stdio;
-        writefln("error: %s", e.msg);
+        stderr.writefln("error: %s", e.msg);
         usage();
     }
 }
@@ -231,7 +226,7 @@ class CaptureWindow
         }
         else
         {
-            writeln("No existing vertex shader provided, using a default one.");
+            stderr.writeln("No existing vertex shader provided, using a default one.");
             vertexShaderSource = defaultVertexShader;
         }
 
