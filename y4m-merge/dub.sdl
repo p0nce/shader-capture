@@ -1,0 +1,6 @@
+name "y4m-merge"
+description "Average neighbour frames in a video (speed up the video) for a special effect."
+authors "Guillaume Piolat"
+copyright "Copyright 2016, Guillaume Piolat"
+license "BSL-1.0"
+dependency "y4m-d" version="~>0.0"
