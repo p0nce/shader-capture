@@ -1,5 +1,5 @@
-name "y4m-merge"
-description "Average neighbour frames in a video (speed up the video) for a special effect."
+name "y4m2yuv"
+description "Converts an Y4M into a YUV file."
 authors "Guillaume Piolat"
 copyright "Copyright 2016, Guillaume Piolat"
 license "BSL-1.0"

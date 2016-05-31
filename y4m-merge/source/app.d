@@ -59,7 +59,6 @@ int main(string[]args)
         int bitdepth = y4mInput.bitdepth;
 
         auto y4mOutput = new Y4MWriter(stdout, width, height, y4mInput.framerate, y4mInput.pixelAR, interlacing, subsampling); 
-        ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
 
         assert(y4mInput.frameSize() == y4mOutput.frameSize());
 
@@ -92,12 +91,13 @@ int main(string[]args)
                 int total = 0;
                 foreach(i; 0..N)
                 {
-                    total
+                        
+                        // TODO
 
                 }
             }
 
-            output.writeFrame(frameOut[]);
+            y4mOutput.writeFrame(frameOut[]);
         }
 
         return 0;
