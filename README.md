@@ -2,6 +2,8 @@ This repositery contains several programs to process or generate Y4M files.
 
 - `shader-capture`: capture a shader into a video
 - `y4m-merge`: merge neighbouring frames (large speed-up)
+- `y4m-play`: open a SDL window and plays the Y4M
+- `y4m2yuv`: Y4M to YUV conversion
 
 ### What is `shader-capture`?
 
