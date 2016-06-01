@@ -64,6 +64,8 @@ int main(string[]args)
 
         size_t frameBytes = y4mInput.frameSize();
 
+        int sampleSize = y4mInput.sampleSize();
+
         ubyte[][] framesIn;
 
         ubyte[] frameOut;
@@ -86,15 +88,19 @@ int main(string[]args)
                 framesIn[i][] = frameData[]; // copy
             }
 
-            foreach (b; 0..frameBytes)
+            if (sampleSize == 1)
             {
-                int total = 0;
-                foreach(i; 0..N)
+                foreach (b; 0..frameBytes)
                 {
-                        
-                        // TODO
-
+                    int total = 0;
+                    foreach(i; 0..N)
+                        total += framesIn[i][b];
+                    frameOut[b] = cast(ubyte)( (total + (N/2)) / N );
                 }
+            }
+            else
+            {
+                assert(false); // TODO
             }
 
             y4mOutput.writeFrame(frameOut[]);
