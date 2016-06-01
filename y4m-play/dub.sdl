@@ -1,0 +1,7 @@
+name "y4m-play"
+description "Plays a Y4M file."
+authors "Guillaume Piolat"
+copyright "Copyright 2016, Guillaume Piolat"
+license "BSL-1.0"
+dependency "y4m-d" version="~>1.0"
+dependency "gfm:sdl2" version="~>6.0"
