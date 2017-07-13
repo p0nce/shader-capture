@@ -74,7 +74,7 @@ void main(string[]args)
             {
                 ++i;
                 fragmentShaderFile = args[i];
-            }         
+            }
             else if (arg == "-w")
             {
                 ++i;
@@ -127,7 +127,7 @@ void main(string[]args)
 
         int numFrames = cast(int)(0.5 + durationInSecs * fps);
 
-        auto y4mOutput = new Y4MWriter(stdout, width, height, Rational(fps, 1), Rational(1, 1), Interlacing.Progressive, Subsampling.C444); 
+        auto y4mOutput = new Y4MWriter(stdout, width, height, Rational(fps, 1), Rational(1, 1), Interlacing.Progressive, Subsampling.C444);
         ubyte[] frameBytes = new ubyte[y4mOutput.frameSize()];
 
 
@@ -154,7 +154,7 @@ void main(string[]args)
         }
         stdout.flush();
 
-        stderr.writefln("Written %s frames.", iFrame); 
+        stderr.writefln("Written %s frames.", iFrame);
     }
     catch(Exception e)
     {
@@ -206,15 +206,15 @@ class CaptureWindow
                                  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
         // reload OpenGL now that a context exists
-        _gl.reload();
+        _gl.reload(GLVersion.GL11, GLVersion.GL30);
 
         _texture = new GLTexture2D(_gl);
         _texture.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
         _texture.setMagFilter(GL_LINEAR);
         _texture.setWrapS(GL_CLAMP_TO_EDGE);
         _texture.setWrapT(GL_CLAMP_TO_EDGE);
-        _texture.setImage(0, GL_RGBA, _renderWidth, _renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, null); 
-        _texture.generateMipmap();    
+        _texture.setImage(0, GL_RGBA, _renderWidth, _renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, null);
+        _texture.generateMipmap();
 
         _fbo = new GLFBO(_gl);
         _fbo.use();
@@ -237,7 +237,7 @@ class CaptureWindow
             vertexShaderSource = defaultVertexShader;
         }
 
-        // ensure first line is "#version" 
+        // ensure first line is "#version"
         // Default is #version 110 which seems in line with what online shaders do
         if (fragmentShaderSource.length < 9 || fragmentShaderSource[0..9] != "#version ")
             fragmentShaderSource = "#version 110\n" ~ fragmentShaderSource;
@@ -274,7 +274,7 @@ class CaptureWindow
     }
 
     void createGeometry()
-    { 
+    {
 
         Vertex[] quad;
         quad ~= Vertex(vec3f(-1, -1, 0));
@@ -319,9 +319,9 @@ class CaptureWindow
         drawTextureContent(size.x, size.y);
     }
 
-    void recomputeTextureContent(double time) 
+    void recomputeTextureContent(double time)
     {
-        glViewport(0, 0, _renderWidth, _renderHeight); 
+        glViewport(0, 0, _renderWidth, _renderHeight);
         _fbo.use();
 
         // variables from http://glslsandbox.com/
@@ -336,7 +336,7 @@ class CaptureWindow
         _fbo.unuse();
 
         // this step allow mipmapped display, and also does the subsampling for readback
-        _texture.generateMipmap(); 
+        _texture.generateMipmap();
     }
 
     /// Shows the content of texture into the displayed framebuffer
@@ -360,11 +360,11 @@ class CaptureWindow
     {
         int numPixels = _captureWidth * _captureHeight;
         assert(frame.length == numPixels * 3);
-        
+
         // read back texture
 
         _texture.getTexImage(_levelReadback, GL_RGBA, GL_UNSIGNED_BYTE, _rgbaBuf.ptr);
-        
+
 
         // Convert from interlaced RGBA8 to planar YUV 4:4:4
         // using Rec 709 everytime (should be 601 for SD video but unimplemented)
@@ -408,7 +408,7 @@ class CaptureWindow
         glDrawArrays(GL_TRIANGLES, 0, cast(int)(_quadVBO.size() / _quadVS.vertexSize()));
         _vao.unbind();
     }
-    
+
 
     ConsoleLogger _log;
     SDL2 _sdl2;
