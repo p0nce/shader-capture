@@ -206,7 +206,7 @@ class CaptureWindow
                                  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
         // reload OpenGL now that a context exists
-        _gl.reload(GLVersion.GL11, GLVersion.GL30);
+        _gl.reload(GLVersion.GL11, GLVersion.GL33);
 
         _texture = new GLTexture2D(_gl);
         _texture.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
@@ -475,8 +475,10 @@ string defaultVertexShader =
     q{#version 330 core
 
         in vec3 position;
+        varying vec2 surfacePosition;
         void main()
         {
+            surfacePosition = 0.5 * position.xy + vec2(0.5, 0.5);
             gl_Position = vec4(position, 1.0);
         }
     };
