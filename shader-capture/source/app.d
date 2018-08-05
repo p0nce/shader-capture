@@ -442,7 +442,7 @@ class CaptureWindow
 }
 
 string blitProgramSource =
-q{#version 330 core
+q"{#version 330 core
 
     #if VERTEX_SHADER
     in vec3 position;
@@ -469,17 +469,17 @@ q{#version 330 core
         color = texture(fbTexture, uv).rgba; // stretch TODO proper ratio display
     }
     #endif
-};
+}";
 
 string defaultVertexShader =
-    q{#version 330 core
+    q"{#version 330 core
 
         in vec3 position;
-        varying vec2 surfacePosition;
+        out vec2 surfacePosition;
         void main()
         {
             surfacePosition = 0.5 * position.xy + vec2(0.5, 0.5);
             gl_Position = vec4(position, 1.0);
         }
-    };
+    }";
 
